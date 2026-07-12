@@ -391,12 +391,15 @@ async function gdeltFetch(queryCore, useTimespan){
   return data.articles || [];
 }
 
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
 async function fetchCountryArticles(topic, code){
   const queryCore = `${topic} sourcecountry:${gdeltSlug(code)}`;
   let list = await gdeltFetch(queryCore, true);
   // safety net: if the 1-year filter turns up nothing, retry without it
   // (covers cases where the timespan format isn't recognized, or the topic is just older)
   if (list.length === 0){
+    await sleep(5200); // GDELT asks for at least 5s between requests
     list = await gdeltFetch(queryCore, false);
   }
   return list.map((art, i) => ({
@@ -421,12 +424,18 @@ async function runSearch(){
   document.getElementById('tonePanel').style.display = 'block';
   const grid = document.getElementById('resultsGrid');
   const countryList = [...selectedCountries];
-  grid.innerHTML = `<div class="loading">${countryList.map(c=>COUNTRIES[c].name).join(', ')} 언론 검색 중...</div>`;
 
   try{
-    const results = await Promise.all(
-      countryList.map(code => fetchCountryArticles(topic, code).catch(() => []))
-    );
+    // GDELT (free, no API key) asks for at least 5 seconds between requests,
+    // so we search countries one at a time instead of all at once.
+    const results = [];
+    for (let i = 0; i < countryList.length; i++){
+      const code = countryList[i];
+      grid.innerHTML = `<div class="loading">${COUNTRIES[code].name} 언론 검색 중... (${i+1}/${countryList.length})</div>`;
+      const articles = await fetchCountryArticles(topic, code).catch(() => []);
+      results.push(articles);
+      if (i < countryList.length - 1) await sleep(5200);
+    }
     currentArticles = results.flat();
     emptyCountries = countryList.filter((code, i) => results[i].length === 0);
     usingMock = false;
