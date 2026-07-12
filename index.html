@@ -333,12 +333,23 @@ function renderResults(){
   const pool = usingMock ? ARTICLES : currentArticles;
   const visible = pool.filter(a => selectedCountries.has(a.country));
 
-  if (visible.length === 0 && emptyCountries.length === 0){
+  if (visible.length === 0 && emptyCountries.length === 0 && rateLimitedCountries.length === 0){
     grid.innerHTML = `<div class="loading">국가를 선택하고 검색해보세요.</div>`;
     return;
   }
 
   visible.forEach(a => grid.appendChild(buildCard(a)));
+
+  // GDELT rate-limited us for this country — say so plainly, don't pretend there's no news
+  rateLimitedCountries.filter(code => selectedCountries.has(code)).forEach(code => {
+    const notice = document.createElement('div');
+    notice.className = 'card';
+    notice.innerHTML = `
+      <div class="meta">${flagImg(code)}<span class="source">${COUNTRIES[code].name}</span></div>
+      <div class="snippet">뉴스 API 요청이 너무 잦아서 일시적으로 막혔어요 (기사가 없는 게 아니에요). 잠시 후 "검색"을 다시 눌러보세요.</div>
+    `;
+    grid.appendChild(notice);
+  });
 
   // show a small notice for any selected country that came back with zero articles
   emptyCountries.filter(code => selectedCountries.has(code)).forEach(code => {
@@ -387,34 +398,54 @@ async function gdeltFetch(queryCore, useTimespan){
   const timespanPart = useTimespan ? '&timespan=365days' : '';
   const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=artlist&maxrecords=6${timespanPart}&format=json&sort=${sort}`;
   const res = await fetch(url);
-  const data = await res.json();
+  const raw = await res.text();
+  let data;
+  try{
+    data = JSON.parse(raw);
+  }catch(e){
+    // GDELT didn't return JSON — usually means we hit its rate limit, or another
+    // plain-text notice. Surface this distinctly instead of silently returning [].
+    const err = new Error('GDELT_NON_JSON_RESPONSE');
+    err.raw = raw;
+    throw err;
+  }
   return data.articles || [];
 }
 
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 async function fetchCountryArticles(topic, code){
-  const queryCore = `${topic} sourcecountry:${gdeltSlug(code)}`;
-  let list = await gdeltFetch(queryCore, true);
-  // safety net: if the 1-year filter turns up nothing, retry without it
-  // (covers cases where the timespan format isn't recognized, or the topic is just older)
-  if (list.length === 0){
-    await sleep(5200); // GDELT asks for at least 5s between requests
-    list = await gdeltFetch(queryCore, false);
+  const queryCore = `"${topic}" sourcecountry:${gdeltSlug(code)}`;
+  try{
+    let list = await gdeltFetch(queryCore, true);
+    // safety net: if the 1-year filter turns up nothing, retry without it
+    // (covers cases where the topic is just older than a year)
+    if (list.length === 0){
+      await sleep(5200); // GDELT asks for at least 5s between requests
+      list = await gdeltFetch(queryCore, false);
+    }
+    return list.map((art, i) => ({
+      id: `${code}-${i}-${Date.now()}`,
+      country: code,
+      lang: code === 'KR' ? 'ko' : 'other',
+      source: (art.domain || '').replace('www.',''),
+      logo: domainInitials(art.domain),
+      title: art.title || '(제목 없음)',
+      snippet: '',
+      url: art.url
+    }));
+  }catch(e){
+    if (e.message === 'GDELT_NON_JSON_RESPONSE'){
+      const rateLimited = new Error('RATE_LIMITED');
+      throw rateLimited;
+    }
+    throw e;
   }
-  return list.map((art, i) => ({
-    id: `${code}-${i}-${Date.now()}`,
-    country: code,
-    lang: code === 'KR' ? 'ko' : 'other',
-    source: (art.domain || '').replace('www.',''),
-    logo: domainInitials(art.domain),
-    title: art.title || '(제목 없음)',
-    snippet: '',
-    url: art.url
-  }));
 }
 
 let emptyCountries = []; // countries with zero results from the last search
+
+let rateLimitedCountries = []; // countries that hit GDELT's rate limit on the last search
 
 async function runSearch(){
   const topic = document.getElementById('topicInput').value.trim();
@@ -429,15 +460,22 @@ async function runSearch(){
     // GDELT (free, no API key) asks for at least 5 seconds between requests,
     // so we search countries one at a time instead of all at once.
     const results = [];
+    const rateLimited = [];
     for (let i = 0; i < countryList.length; i++){
       const code = countryList[i];
       grid.innerHTML = `<div class="loading">${COUNTRIES[code].name} 언론 검색 중... (${i+1}/${countryList.length})</div>`;
-      const articles = await fetchCountryArticles(topic, code).catch(() => []);
-      results.push(articles);
+      try{
+        const articles = await fetchCountryArticles(topic, code);
+        results.push(articles);
+      }catch(e){
+        if (e.message === 'RATE_LIMITED') rateLimited.push(code);
+        results.push([]);
+      }
       if (i < countryList.length - 1) await sleep(5200);
     }
     currentArticles = results.flat();
-    emptyCountries = countryList.filter((code, i) => results[i].length === 0);
+    rateLimitedCountries = rateLimited;
+    emptyCountries = countryList.filter((code, i) => results[i].length === 0 && !rateLimited.includes(code));
     usingMock = false;
     renderResults();
   }catch(e){
