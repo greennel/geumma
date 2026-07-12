@@ -381,18 +381,24 @@ function buildCard(a){
   return el;
 }
 
-async function gdeltFetch(queryCore){
+async function gdeltFetch(queryCore, useTimespan){
   const q = encodeURIComponent(queryCore);
   const sort = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'HybridRel';
-  // timespan=1y limits results to roughly the last year
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=artlist&maxrecords=6&timespan=1y&format=json&sort=${sort}`;
+  const timespanPart = useTimespan ? '&timespan=365days' : '';
+  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=artlist&maxrecords=6${timespanPart}&format=json&sort=${sort}`;
   const res = await fetch(url);
   const data = await res.json();
   return data.articles || [];
 }
 
 async function fetchCountryArticles(topic, code){
-  const list = await gdeltFetch(`${topic} sourcecountry:${gdeltSlug(code)}`);
+  const queryCore = `${topic} sourcecountry:${gdeltSlug(code)}`;
+  let list = await gdeltFetch(queryCore, true);
+  // safety net: if the 1-year filter turns up nothing, retry without it
+  // (covers cases where the timespan format isn't recognized, or the topic is just older)
+  if (list.length === 0){
+    list = await gdeltFetch(queryCore, false);
+  }
   return list.map((art, i) => ({
     id: `${code}-${i}-${Date.now()}`,
     country: code,
