@@ -393,18 +393,36 @@ function buildCard(a){
 }
 
 async function gdeltFetch(queryCore, useTimespan){
-  const q = encodeURIComponent(queryCore);
   const sort = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'HybridRel';
+
+  // Try our own backend proxy first — avoids the browser being rate-limited/CORS-blocked
+  // by GDELT directly, since the request goes out from the server's IP instead.
+  try{
+    const params = new URLSearchParams({ query: queryCore, sort });
+    if (useTimespan) params.set('timespan', '365days');
+    const res = await fetch(`/api/news?${params.toString()}`);
+    if (res.ok){
+      const data = await res.json();
+      if (data.warning === 'non_json_response'){
+        const err = new Error('GDELT_NON_JSON_RESPONSE');
+        throw err;
+      }
+      return data.articles || [];
+    }
+  }catch(e){
+    if (e.message === 'GDELT_NON_JSON_RESPONSE') throw e;
+    // no backend here (e.g. Claude artifact preview) — fall through to direct call
+  }
+
+  const q = encodeURIComponent(queryCore);
   const timespanPart = useTimespan ? '&timespan=365days' : '';
   const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=artlist&maxrecords=6${timespanPart}&format=json&sort=${sort}`;
-  const res = await fetch(url);
-  const raw = await res.text();
+  const res2 = await fetch(url);
+  const raw = await res2.text();
   let data;
   try{
     data = JSON.parse(raw);
   }catch(e){
-    // GDELT didn't return JSON — usually means we hit its rate limit, or another
-    // plain-text notice. Surface this distinctly instead of silently returning [].
     const err = new Error('GDELT_NON_JSON_RESPONSE');
     err.raw = raw;
     throw err;
