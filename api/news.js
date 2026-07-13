@@ -31,6 +31,6 @@ module.exports = async function handler(req, res) {
     }
     return res.status(200).json(data);
   } catch (err) {
-    return res.status(500).json({ error: 'GDELT request failed' });
+    return res.status(500).json({ error: 'GDELT request failed', detail: String(err && err.message || err) });
   }
 };
