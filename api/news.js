@@ -32,10 +32,11 @@ module.exports = async function handler(req, res) {
   const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
 
   try {
-    let data = await fetchOnce(url);
-    if (!data) {
-      await sleep(2500);
-      data = await fetchOnce(url); // one retry, in case of a transient rate-limit hiccup
+    let data = null;
+    const delays = [0, 2000, 3500];
+    for (let i = 0; i < delays.length && !data; i++){
+      if (delays[i]) await sleep(delays[i]);
+      data = await fetchOnce(url);
     }
     if (!data) {
       return res.status(200).json({ articles: [], warning: 'non_json_response' });
