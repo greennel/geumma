@@ -71,9 +71,24 @@
   #bookmarkToggleBtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   .bookmark-btn{font-size:18px;background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--ink-soft);line-height:1;}
   .bookmark-btn.saved{color:#F2B705;}
+
+  .intro-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:100;}
+  .intro-welcome{font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.08em;color:var(--accent);opacity:0;animation:fadeUp .6s ease forwards;text-transform:uppercase;}
+  .intro-title{font-family:'Playfair Display',Georgia,serif;font-style:italic;font-weight:600;font-size:64px;color:var(--ink);display:flex;}
+  .intro-title span{display:inline-block;opacity:0;transform:translateY(16px);animation:fadeUp .5s ease forwards;}
+  .intro-enter{opacity:0;animation:fadeUp .6s ease forwards;animation-delay:1.6s;margin-top:8px;padding:14px 48px;font-size:16px;border-radius:999px;background:var(--accent);color:#fff;border:none;}
+  .intro-enter:hover{background:var(--accent-ink);}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+  .wrap{display:none;}
 </style>
 </head>
 <body>
+
+<div class="intro-screen" id="introScreen">
+  <div class="intro-welcome">환영합니다!</div>
+  <div class="intro-title" id="introTitle"></div>
+  <button class="intro-enter" onclick="enterSite()">입장</button>
+</div>
 
 <div class="wrap">
   <header>
@@ -623,6 +638,28 @@ async function generateToneComparison(){
   }catch(e){
     body.textContent = '비교를 가져오지 못했어요. 잠시 후 다시 시도해보세요 (계속되면 서버 설정을 확인해야 해요).';
   }
+}
+
+// ---------- intro screen ----------
+(function buildIntroTitle(){
+  const title = document.getElementById('introTitle');
+  const letters = 'GEUMMA'.split('');
+  letters.forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    span.style.animationDelay = `${0.5 + i * 0.12}s`;
+    title.appendChild(span);
+  });
+})();
+
+function enterSite(){
+  const intro = document.getElementById('introScreen');
+  intro.style.transition = 'opacity .4s ease';
+  intro.style.opacity = '0';
+  setTimeout(() => {
+    intro.style.display = 'none';
+    document.querySelector('.wrap').style.display = 'block';
+  }, 400);
 }
 
 // ---------- init ----------
