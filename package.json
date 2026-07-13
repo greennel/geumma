@@ -2,5 +2,8 @@
   "name": "geumma",
   "version": "1.0.0",
   "private": true,
-  "description": "GEUMMA - Global Expanded Unified Media & Multinational Analysis"
+  "description": "GEUMMA - Global Expanded Unified Media & Multinational Analysis",
+  "engines": {
+    "node": "20.x"
+  }
 }
