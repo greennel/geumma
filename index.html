@@ -80,7 +80,7 @@
     <h1>GEUMMA</h1>
     <p>검색창에 관심 주제를 검색하세요.</p>
     <div class="search-row">
-      <input type="text" id="topicInput" value="탄소세 정책" />
+      <input type="text" id="topicInput" value="러시아 우크라이나 전쟁" />
       <button class="primary" onclick="runSearch()">검색</button>
     </div>
     <div class="toolbar">
@@ -394,24 +394,29 @@ function buildCard(a){
 
 async function gdeltFetch(queryCore, useTimespan){
   const sort = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'HybridRel';
+  const params = new URLSearchParams({ query: queryCore, sort });
+  if (useTimespan) params.set('timespan', '365days');
 
-  // Try our own backend proxy first — avoids the browser being rate-limited/CORS-blocked
-  // by GDELT directly, since the request goes out from the server's IP instead.
+  // Try our own backend proxy first. If it answers with valid JSON at all (even an
+  // error), we know we're on the real deployed site — use that result and stop there.
+  // Only fall through to a direct GDELT call if the proxy route doesn't exist at all
+  // (e.g. this file opened as a Claude artifact preview, with no /api routes).
+  let proxyData = null;
   try{
-    const params = new URLSearchParams({ query: queryCore, sort });
-    if (useTimespan) params.set('timespan', '365days');
     const res = await fetch(`/api/news?${params.toString()}`);
-    if (res.ok){
-      const data = await res.json();
-      if (data.warning === 'non_json_response'){
-        const err = new Error('GDELT_NON_JSON_RESPONSE');
-        throw err;
-      }
-      return data.articles || [];
-    }
+    const text = await res.text();
+    proxyData = JSON.parse(text);
   }catch(e){
-    if (e.message === 'GDELT_NON_JSON_RESPONSE') throw e;
-    // no backend here (e.g. Claude artifact preview) — fall through to direct call
+    proxyData = null; // no backend reachable here
+  }
+
+  if (proxyData){
+    if (proxyData.error || proxyData.warning === 'non_json_response'){
+      const err = new Error('GDELT_NON_JSON_RESPONSE');
+      err.detail = proxyData.detail || proxyData.error;
+      throw err;
+    }
+    return proxyData.articles || [];
   }
 
   const q = encodeURIComponent(queryCore);
@@ -552,7 +557,7 @@ async function summarizeArticle(id){
     summaryCache[id] = text;
     slot.innerHTML = `<div class="ai-result">${text}</div>`;
   }catch(e){
-    slot.innerHTML = `<div class="ai-result">요약을 가져오지 못했어요. (이 버튼은 Claude 아티팩트 안에서 열었을 때 동작해요)</div>`;
+    slot.innerHTML = `<div class="ai-result">요약을 가져오지 못했어요. 잠시 후 다시 시도해보세요 (계속되면 서버 설정을 확인해야 해요).</div>`;
   }
 }
 
@@ -587,7 +592,7 @@ async function translateArticle(id){
     translateCache[id] = text;
     slot.innerHTML = `<div class="ai-result">${text}</div>`;
   }catch(e){
-    slot.innerHTML = `<div class="ai-result">번역을 가져오지 못했어요. (이 버튼은 Claude 아티팩트 안에서 열었을 때 동작해요)</div>`;
+    slot.innerHTML = `<div class="ai-result">번역을 가져오지 못했어요. 잠시 후 다시 시도해보세요 (계속되면 서버 설정을 확인해야 해요).</div>`;
   }
 }
 
@@ -603,7 +608,7 @@ async function generateToneComparison(){
     const text = await callClaude(prompt);
     body.textContent = text;
   }catch(e){
-    body.textContent = '비교를 가져오지 못했어요. (이 버튼은 Claude 아티팩트 안에서 열었을 때 동작해요)';
+    body.textContent = '비교를 가져오지 못했어요. 잠시 후 다시 시도해보세요 (계속되면 서버 설정을 확인해야 해요).';
   }
 }
 
