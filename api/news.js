@@ -2,6 +2,18 @@
 // This avoids the browser being rate-limited/blocked directly by GDELT (429 errors),
 // since the request now comes from Vercel's server IP instead of the visitor's IP.
 
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+async function fetchOnce(url){
+  const response = await fetch(url);
+  const raw = await response.text();
+  try{
+    return JSON.parse(raw);
+  }catch(e){
+    return null; // not JSON — GDELT gave a plain-text notice (rate limit, etc.)
+  }
+}
+
 module.exports = async function handler(req, res) {
   const { query, timespan, sort } = req.query;
   if (!query) {
@@ -20,13 +32,12 @@ module.exports = async function handler(req, res) {
   const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
 
   try {
-    const response = await fetch(url);
-    const raw = await response.text();
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch (e) {
-      // GDELT returned plain text (rate limit notice, etc.) instead of JSON
+    let data = await fetchOnce(url);
+    if (!data) {
+      await sleep(2500);
+      data = await fetchOnce(url); // one retry, in case of a transient rate-limit hiccup
+    }
+    if (!data) {
       return res.status(200).json({ articles: [], warning: 'non_json_response' });
     }
     return res.status(200).json(data);
