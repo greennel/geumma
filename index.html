@@ -24,7 +24,8 @@
   .search-row{display:flex;gap:8px;margin-top:20px;}
   input[type=text]{flex:1;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:14px;color:var(--ink);}
   input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px;}
-  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 16px;font-size:13px;transition:background .15s;}
+  button, a.icon-only{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 16px;font-size:13px;transition:background .15s;}
+  a.icon-only:hover{background:var(--accent-bg);}
   button:hover{background:var(--accent-bg);}
   button.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
   button.primary:hover{background:var(--accent-ink);}
@@ -55,8 +56,8 @@
   .card .title{font-size:14px;font-weight:600;line-height:1.4;}
   .card .snippet{font-size:12.5px;color:var(--ink-soft);line-height:1.55;}
   .card .actions{display:flex;gap:6px;margin-top:2px;}
-  .card .actions button{flex:1;font-size:12px;padding:7px 6px;display:flex;align-items:center;justify-content:center;gap:4px;}
-  .card .actions button.icon-only{flex:none;width:32px;}
+  .card .actions button, .card .actions a.icon-only{flex:1;font-size:12px;padding:7px 6px;display:flex;align-items:center;justify-content:center;gap:4px;}
+  .card .actions .icon-only{flex:none;width:32px;}
   .ai-result{font-size:12.5px;line-height:1.6;background:var(--accent-bg);color:var(--accent-ink);border-radius:8px;padding:10px;white-space:pre-wrap;}
   .loading{font-size:12px;color:var(--ink-soft);font-style:italic;}
   .roadmap{margin-top:36px;padding-top:20px;border-top:1px solid var(--line);}
@@ -386,7 +387,7 @@ function buildCard(a){
     <div class="actions">
       <button onclick="summarizeArticle('${a.id}')">요약</button>
       ${needsTranslate ? `<button onclick="translateArticle('${a.id}')">번역</button>` : ''}
-      <button class="icon-only" title="원문 열기" onclick="window.open('${a.url || '#'}','_blank')">↗</button>
+      <a class="icon-only" href="${a.url || '#'}" target="_blank" rel="noopener noreferrer" title="원문 열기" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">↗</a>
     </div>
   `;
   return el;
