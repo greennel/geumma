@@ -182,7 +182,7 @@ function gdeltSlug(code){
 }
 
 // countries pinned as chips by default; the rest are reachable through country search
-const DEFAULT_COUNTRIES = ['KR','US','DE'];
+const DEFAULT_COUNTRIES = ['KR','US','UA','RU'];
 
 function flagImg(code){
   // Builds the flag emoji from the two-letter country code (no network request needed)
@@ -209,6 +209,18 @@ const ARTICLES = [
   { id:'de2', country:'DE', lang:'de', source:'FAZ', logo:'FZ', stance:'con',
     title:'Wirtschaft warnt vor Folgen langer Sanktionen',
     snippet:'Verbände fordern klare Exit-Strategie für Energiepolitik...' },
+  { id:'ua1', country:'UA', lang:'other', source:'Kyiv Independent', logo:'KI', stance:'neu',
+    title:'Frontline situation remains largely unchanged in the east',
+    snippet:'Military officials report continued positional fighting near key cities...' },
+  { id:'ua2', country:'UA', lang:'other', source:'Ukrinform', logo:'UKR', stance:'pro',
+    title:'President thanks allies for new defense package',
+    snippet:'Latest aid shipment includes air defense and ammunition support...' },
+  { id:'ru1', country:'RU', lang:'other', source:'TASS', logo:'TASS', stance:'pro',
+    title:'Officials comment on situation along the front line',
+    snippet:'State media reports on military operations and territorial claims...' },
+  { id:'ru2', country:'RU', lang:'other', source:'Meduza', logo:'MDZ', stance:'con',
+    title:'Independent outlet reports on war-related economic strain',
+    snippet:'Analysts note growing impact of prolonged conflict on domestic economy...' },
 ];
 
 let selectedCountries = new Set(DEFAULT_COUNTRIES);
